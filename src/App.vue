@@ -36,6 +36,7 @@
               <input
                 v-model="ticker"
                 v-on:keydown.enter="add()"
+                v-on:input="coinTips"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -44,30 +45,21 @@
               />
             </div>
             <div
+              v-if="tips.length"
               class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
             >
               <span
+                v-for="tip in tips"
+                v-bind:key="tip"
+                @click="addTip(tip)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
-                BTC
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                CHD
+                {{ tip }}
               </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div v-if="isCoin" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -106,7 +98,7 @@
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
-                {{ t.name }} - USD
+                {{ t.name.toUpperCase() }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
                 {{ t.price }}
@@ -189,6 +181,9 @@ export default {
       tickers: [],
       sel: null,
       graph: [],
+      coinsData: null,
+      isCoin: false,
+      tips: [],
     };
   },
   methods: {
@@ -197,27 +192,57 @@ export default {
         name: this.ticker,
         price: "-",
       };
+      if (!this.hasCoin(currentTicker)) {
+        this.isCoin = true;
+        return false;
+      }
 
-      this.tickers.push(currentTicker);
+      if (currentTicker.name) this.tickers.push(currentTicker);
+
       setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=37e7d8d9b5c13cb06e53a30c1e95225f836f8a007ec7d5f0a7b88123b7bfe668`
-        );
-        const data = await f.json();
-        this.tickers.find((t) => t.name === currentTicker.name).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if (this.sel?.name === currentTicker.name) {
-          this.graph.push(data.USD);
-        }
-        console.log("res", data);
+        // this.tickers.find((t) => t.name === currentTicker.name).price =
+        //   data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+        // if (this.sel?.name === currentTicker.name) {
+        //   this.graph.push(data.USD);
+        // }
+        // console.log("res", data);
       }, 5000);
 
       this.ticker = "";
     },
+    hasCoin(t) {
+      for (let coin of Object.values(this.coinsData)) {
+        if (coin.Symbol.toLowerCase() === t.name.toLowerCase()) {
+          return true;
+        }
+      }
+    },
+    addTip(tip) {
+      this.ticker = tip;
+      this.add();
+    },
+    coinTips() {
+      this.tips = [];
+      for (let coin of Object.values(this.coinsData)) {
+        let coinSymbol = coin.Symbol.toLowerCase();
+        let coinFullName = coin.FullName.toLowerCase();
+        if (
+          (coinSymbol.includes(this.ticker.toLowerCase()) ||
+            coinFullName.includes(this.ticker.toLowerCase())) &&
+          this.tips.length < 4 &&
+          this.ticker
+        ) {
+          this.tips.push(coinSymbol.toUpperCase());
+        }
+      }
+      console.log("tips", this.tips);
+    },
+    test() {
+      console.log("12");
+    },
     removeHandler(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t !== tickerToRemove);
-      if (tickerToRemove == this.sel) this.sel = null;
+      if (tickerToRemove === this.sel) this.sel = null;
     },
     select(ticker) {
       this.sel = ticker;
@@ -232,12 +257,13 @@ export default {
       );
     },
   },
-  // created: function () {
-  //   const req = fetch(
-  //     "https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR&api_key='37e7d8d9b5c13cb06e53a30c1e95225f836f8a007ec7d5f0a7b88123b7bfe668'"
-  //   );
-  //   const res = req.json();
-  //   console.log("res", res);
-  // },
+  created: async function () {
+    const req = await fetch(
+      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+    );
+    const data = await req.json();
+    this.coinsData = data.Data;
+    console.log("res", this.coinsData);
+  },
 };
 </script>
