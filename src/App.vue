@@ -45,8 +45,8 @@
               />
             </div>
             <div
-              v-if="tips.length"
-              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
+              v-if="tips.length > 0"
+              class="inline-flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
             >
               <span
                 v-for="tip in tips"
@@ -58,7 +58,7 @@
               </span>
             </div>
             <div v-if="isCoin" class="text-sm text-red-600">
-              Такой тикер уже добавлен
+              Такой монеты не существует или она уже добавлена
             </div>
           </div>
         </div>
@@ -98,7 +98,7 @@
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
-                {{ t.name.toUpperCase() }} - USD
+                {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
                 {{ t.price }}
@@ -187,15 +187,43 @@ export default {
     };
   },
   methods: {
-    add() {
+    async add() {
       const currentTicker = {
-        name: this.ticker,
+        name: this.ticker?.toUpperCase(),
         price: "-",
       };
+      for (let tick of this.tickers) {
+        if (tick.name == this.ticker.toUpperCase()) {
+          this.isCoin = true;
+          return false;
+        }
+      }
       if (!this.hasCoin(currentTicker)) {
         this.isCoin = true;
         return false;
       }
+
+      // for (let coin of Object.values(this.coinsData)) {
+      // let coinSymbol = coin.Symbol.toLowerCase();
+      // let coinFullName = coin.FullName.toLowerCase();
+      // if (
+      //   (coinSymbol.includes(this.ticker.toLowerCase()) ||
+      //     coinFullName.includes(this.ticker.toLowerCase())) &&
+      //   this.tips.length < 4 &&
+      //   this.ticker
+      // ) {
+      //   currentTicker.price = coin.
+      // }
+      // }
+
+      const req = await fetch(
+        `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD`
+      );
+      const data = await req.json();
+      console.log("isusd", data.USD > 1);
+      currentTicker.price =
+        data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+      console.log("coinprice", data);
 
       if (currentTicker.name) this.tickers.push(currentTicker);
 
@@ -209,6 +237,7 @@ export default {
       }, 5000);
 
       this.ticker = "";
+      this.tips = [];
     },
     hasCoin(t) {
       for (let coin of Object.values(this.coinsData)) {
@@ -223,6 +252,7 @@ export default {
     },
     coinTips() {
       this.tips = [];
+      this.isCoin = false;
       for (let coin of Object.values(this.coinsData)) {
         let coinSymbol = coin.Symbol.toLowerCase();
         let coinFullName = coin.FullName.toLowerCase();
@@ -259,11 +289,11 @@ export default {
   },
   created: async function () {
     const req = await fetch(
-      "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
+      "https://min-api.cryptocompare.com/data/all/coinlist"
     );
     const data = await req.json();
     this.coinsData = data.Data;
-    console.log("res", this.coinsData);
+    console.log("res", data);
   },
 };
 </script>
