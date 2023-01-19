@@ -85,10 +85,31 @@
       </section>
 
       <template v-if="this.tickers.length">
+        <div>
+          <hr class="w-full border-t border-gray-600 my-4" />
+          <button
+            v-if="page > 1"
+            @click="page = page - 1"
+            class="my-4 mr-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Назад
+          </button>
+          <button
+            @click="page = page + 1"
+            v-if="hasNextPage"
+            class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Вперед
+          </button>
+          <div>
+            Фильтр:
+            <input v-model="filter" @input="page = ''" type="text" />
+          </div>
+        </div>
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t of tickers"
+            v-for="t of filteredTickers()"
             v-bind:key="t"
             @click="select(t)"
             :class="{
@@ -184,9 +205,23 @@ export default {
       coinsData: null,
       isCoin: false,
       tips: [],
+      filter: "",
+      page: 1,
+      hasNextPage: true,
     };
   },
   created: async function () {
+    const windowData = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    );
+
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
+
     const tickersData = localStorage.getItem("cryptonomicon-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
@@ -202,7 +237,35 @@ export default {
     this.coinsData = data.Data;
     console.log("res", data);
   },
+  watch: {
+    filter() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+    page() {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+  },
   methods: {
+    filteredTickers() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+
+      const filteredTickers = this.tickers.filter((ticker) =>
+        ticker.name.includes(this.filter)
+      );
+      this.hasNextPage = filteredTickers.length > end;
+
+      return filteredTickers.slice(start, end);
+    },
+
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
         const req = await fetch(
@@ -249,6 +312,7 @@ export default {
       this.subscribeToUpdates(currentTicker.name);
 
       this.ticker = "";
+      this.filter = "";
       this.tips = [];
     },
     hasCoin(t) {
